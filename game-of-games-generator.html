@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game of Games — Rule Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
+
+  :root {
+    --ink: #1a1208;
+    --parchment: #f5eed8;
+    --parchment-dark: #e8dfc0;
+    --gold: #c8960c;
+    --gold-light: #e8b832;
+    --crimson: #8b1a1a;
+    --teal: #1a5c5c;
+    --shadow: rgba(26,18,8,0.25);
+    --card-w: 260px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ink);
+    font-family: 'Crimson Pro', Georgia, serif;
+    color: var(--ink);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, #2a1a08 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 90%, #0a2020 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px);
+  }
+
+  header {
+    text-align: center;
+    padding: 48px 24px 32px;
+    border-bottom: 1px solid rgba(200,150,12,0.3);
+  }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 900;
+    color: var(--gold-light);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 40px rgba(200,150,12,0.4), 0 2px 4px rgba(0,0,0,0.8);
+  }
+  header p {
+    color: rgba(245,238,216,0.6);
+    font-size: 1.1rem;
+    font-style: italic;
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .ornament {
+    color: var(--gold);
+    font-size: 1.4rem;
+    letter-spacing: 0.3em;
+    margin: 8px 0;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+
+  /* ── Setup Panel ── */
+  .setup-panel {
+    background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    padding: 28px 32px;
+    margin-bottom: 32px;
+    position: relative;
+    box-shadow: 0 8px 32px var(--shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+  }
+  .setup-panel::before {
+    content: '⬡';
+    position: absolute;
+    top: -14px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--ink);
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-size: 0.8rem;
+  }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .field label {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 6px;
+  }
+
+  .field select, .field input[type=number], .field input[type=text] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid rgba(26,18,8,0.25);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.6);
+    font-family: 'Crimson Pro', serif;
+    font-size: 1rem;
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field select:focus, .field input:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(200,150,12,0.15);
+  }
+
+  .btn-generate {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--gold) 0%, #a07008 100%);
+    color: var(--ink);
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+    box-shadow: 0 4px 16px rgba(200,150,12,0.4);
+  }
+  .btn-generate:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(200,150,12,0.5);
+  }
+  .btn-generate:active:not(:disabled) { transform: translateY(0); }
+  .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Status ── */
+  .status-bar {
+    text-align: center;
+    padding: 16px;
+    color: rgba(245,238,216,0.7);
+    font-style: italic;
+    font-size: 1rem;
+    min-height: 52px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(200,150,12,0.3);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+  .spinner.active { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Tree Viz ── */
+  .tree-section {
+    margin-bottom: 32px;
+  }
+  .section-title {
+    font-family: 'Cinzel', serif;
+    color: var(--gold-light);
+    font-size: 1.1rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, rgba(200,150,12,0.4), transparent);
+  }
+
+  #treeCanvas {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(200,150,12,0.2);
+    border-radius: 4px;
+    width: 100%;
+    display: block;
+  }
+
+  /* ── Mod Cards ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr));
+    gap: 20px;
+  }
+
+  .mod-card {
+    background: linear-gradient(160deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+    border: 1.5px solid var(--gold);
+    border-radius: 6px;
+    padding: 18px 16px 16px;
+    position: relative;
+    box-shadow: 0 4px 16px var(--shadow);
+    animation: cardIn 0.4s ease both;
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: default;
+  }
+  .mod-card:hover {
+    transform: translateY(-4px) rotate(0.3deg);
+    box-shadow: 0 12px 32px var(--shadow);
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .card-badge {
+    position: absolute;
+    top: -10px; right: 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+  }
+  .badge-simple   { background: #2d6e2d; color: #c8f0c8; }
+  .badge-moderate { background: #5c4a00; color: #f0d870; }
+  .badge-complex  { background: #6e1a1a; color: #f0b0b0; }
+
+  .card-category {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: 8px;
+  }
+
+  .card-name {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--crimson);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .card-flavor {
+    font-style: italic;
+    font-size: 0.9rem;
+    color: rgba(26,18,8,0.65);
+    margin-bottom: 12px;
+    line-height: 1.5;
+    border-left: 2px solid rgba(200,150,12,0.3);
+    padding-left: 10px;
+  }
+
+  .card-rule {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .card-rule strong {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    display: block;
+    color: var(--teal);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+  }
+
+  .card-tags {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-top: 10px;
+  }
+  .tag {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(26,92,92,0.12);
+    color: var(--teal);
+    border: 1px solid rgba(26,92,92,0.25);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+  }
+
+  .card-meta {
+    font-size: 0.75rem;
+    color: rgba(26,18,8,0.45);
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* ── JSON export ── */
+  .export-section {
+    margin-top: 32px;
+  }
+  .export-box {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(200,150,12,0.2);
+    border-radius: 4px;
+    padding: 16px;
+    max-height: 320px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #a8c4a0;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  .btn-small {
+    display: inline-block;
+    padding: 7px 18px;
+    background: transparent;
+    color: var(--gold);
+    border: 1.5px solid var(--gold);
+    border-radius: 3px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    margin-right: 8px;
+  }
+  .btn-small:hover { background: var(--gold); color: var(--ink); }
+
+  .error-box {
+    background: rgba(139,26,26,0.2);
+    border: 1px solid var(--crimson);
+    border-radius: 4px;
+    padding: 14px 18px;
+    color: #f0b0b0;
+    font-style: italic;
+  }
+
+  /* ── Dependency lines overlay ── */
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="ornament">✦ ✦ ✦</div>
+  <h1>Game of Games</h1>
+  <p>Rule Modification Generator</p>
+  <div class="ornament">✦ ✦ ✦</div>
+</header>
+
+<main>
+
+  <!-- Setup -->
+  <div class="setup-panel">
+    <div class="setup-grid">
+      <div class="field">
+        <label>Base Game</label>
+        <select id="gameSelect">
+          <option value="chess">Chess</option>
+          <option value="go">Go</option>
+          <option value="backgammon">Backgammon</option>
+          <option value="skat">Skat</option>
+          <option value="tigris">Tigris &amp; Euphrates</option>
+          <option value="custom">Custom (describe below)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Modifications to Generate</label>
+        <input type="number" id="modCount" value="12" min="3" max="30">
+      </div>
+      <div class="field">
+        <label>Difficulty Mix</label>
+        <select id="diffMix">
+          <option value="balanced">Balanced</option>
+          <option value="easy">Mostly Simple</option>
+          <option value="hard">Mostly Complex</option>
+          <option value="wild">Wild (random)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Category Focus</label>
+        <select id="catFocus">
+          <option value="any">Any</option>
+          <option value="movement">Movement</option>
+          <option value="scoring">Scoring</option>
+          <option value="turn_structure">Turn Structure</option>
+          <option value="new_mechanic">New Mechanics</option>
+          <option value="win_condition">Win Conditions</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="customDescField" style="display:none; margin-bottom:16px;">
+      <label>Custom Game Description</label>
+      <input type="text" id="customDesc" placeholder="e.g. A 4-player tile-placement game where players build cities...">
+    </div>
+    <button class="btn-generate" id="generateBtn" onclick="generateModifications()">
+      ✦ Generate Rule Modifications
+    </button>
+  </div>
+
+  <!-- Status -->
+  <div class="status-bar">
+    <div class="spinner" id="spinner"></div>
+    <span id="statusText">Select a game and click Generate to begin.</span>
+  </div>
+
+  <!-- Tree Visualization -->
+  <div class="tree-section hidden" id="treeSection">
+    <div class="section-title">Modification Tree</div>
+    <canvas id="treeCanvas" height="280"></canvas>
+  </div>
+
+  <!-- Cards -->
+  <div id="cardsSection" class="hidden">
+    <div class="section-title">Modification Cards <span style="font-size:0.75rem;color:rgba(245,238,216,0.5);font-family:'Crimson Pro',serif;font-weight:300;font-style:italic;text-transform:none;letter-spacing:0;" id="cardCount"></span></div>
+    <div id="cardsGrid" class="cards-grid"></div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-section hidden" id="exportSection">
+    <div class="section-title">Export</div>
+    <div style="margin-bottom:12px;">
+      <button class="btn-small" onclick="copyJSON()">Copy JSON</button>
+      <button class="btn-small" onclick="downloadJSON()">Download JSON</button>
+      <button class="btn-small" onclick="downloadYAML()">Download YAML</button>
+    </div>
+    <div class="export-box" id="exportBox"></div>
+  </div>
+
+</main>
+
+<script>
+// ─── Game descriptions ───────────────────────────────────────────
+const GAME_DESCRIPTIONS = {
+  chess: `Chess is a 2-player abstract strategy board game on an 8×8 grid. Each player controls 16 pieces: 1 King, 1 Queen, 2 Rooks, 2 Bishops, 2 Knights, and 8 Pawns. Players alternate turns moving one piece. Goal: checkmate the opponent's King (put it in unavoidable capture threat). Key rules: pawns move forward 1 (or 2 from start), capture diagonally; Knights jump in L-shapes; Bishops slide diagonally; Rooks slide orthogonally; Queens combine Rook+Bishop; Kings move one step any direction. Special moves: castling (King+Rook swap), en passant (pawn capture), promotion (pawn reaching 8th rank becomes any piece). Win by checkmate; draw by stalemate, insufficient material, repetition, or 50-move rule.`,
+
+  go: `Go is a 2-player abstract strategy board game on a 19×19 grid of intersections. Players alternate placing stones (Black first). Goal: control more territory. Stones of the same color connected orthogonally form groups; a group with no empty adjacent intersections (liberties) is captured and removed. Ko rule: a move may not recreate the immediately previous board position. Scoring: territory (empty intersections surrounded) + captured stones; White gets 6.5 komi points to compensate for Black's first-move advantage. Game ends when both players pass consecutively.`,
+
+  backgammon: `Backgammon is a 2-player race/strategy board game. Each player has 15 checkers moving along 24 narrow triangles (points) in opposing directions toward their home board. Players roll 2 dice each turn and must move checkers the exact number of points shown (or as many as legally possible). A point with 2+ same-color checkers is "made" (blocked); a single checker is a "blot" — if an opponent lands on it, the checker goes to the bar and must re-enter before other moves. Players win by bearing off (removing) all 15 checkers first. Doubling cube allows stakes to be raised during play.`,
+
+  skat: `Skat is a 3-player German trick-taking card game using a 32-card deck (7-A in 4 suits). One player becomes the Declarer by winning a bidding auction; the other two form the Defender team. The Declarer picks up and buries 2 cards (the Skat), then declares a contract: suit game (one suit as trump), Grand (only Jacks as trump), or Null (trying to take no tricks). Jacks always rank highest in trump suit. Declarer wins by meeting their contract's point threshold (typically 61 of 120 card points). Scoring uses a multiplier system based on the Matadors (top consecutive Jacks held).`,
+
+  tigris: `Tigris & Euphrates is a 3-4 player civilization-building tile game on an 11×16 grid. Players place colored civilization tiles (red=temple, blue=farm, green=trade, black=settlement) and place 4 leader tokens (King/Priest/Farmer/Trader) adjacent to red tiles. Kingdoms form when tiles connect; conflicts arise when two leaders of the same type occupy one kingdom (internal) or kingdoms merge (external). Winning a conflict earns victory points; monuments generate ongoing VP. Players draw tiles from a bag. Scoring: each player's final score is their MINIMUM victory points across all 4 colors (incentivizing balance). Game ends when ≤2 tiles remain in bag or all monuments built.`
+};
+
+const GAME_DISPLAY_NAMES = {
+  chess: "Chess", go: "Go", backgammon: "Backgammon",
+  skat: "Skat", tigris: "Tigris & Euphrates", custom: "Custom Game"
+};
+
+// ─── UI helpers ──────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+document.getElementById('gameSelect').addEventListener('change', function() {
+  $('customDescField').style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+let lastMods = null;
+let lastGameName = '';
+
+function setStatus(msg, loading = false) {
+  $('statusText').textContent = msg;
+  $('spinner').className = 'spinner' + (loading ? ' active' : '');
+}
+
+// ─── Main generation ─────────────────────────────────────────────
+async function generateModifications() {
+  const game = $('gameSelect').value;
+  const count = parseInt($('modCount').value) || 12;
+  const diff = $('diffMix').value;
+  const cat = $('catFocus').value;
+  const customDesc = $('customDesc').value.trim();
+
+  if (game === 'custom' && !customDesc) {
+    alert('Please describe your custom game.'); return;
+  }
+
+  const gameDesc = game === 'custom' ? customDesc : GAME_DESCRIPTIONS[game];
+  const gameName = GAME_DISPLAY_NAMES[game];
+  lastGameName = gameName;
+
+  $('generateBtn').disabled = true;
+  setStatus('Consulting the oracle…', true);
+  ['treeSection','cardsSection','exportSection'].forEach(id => $(id).classList.add('hidden'));
+
+  const diffGuide = {
+    balanced: 'Aim for ~40% simple, ~40% moderate, ~20% complex.',
+    easy:     'Aim for ~60% simple, ~30% moderate, ~10% complex.',
+    hard:     'Aim for ~10% simple, ~30% moderate, ~60% complex.',
+    wild:     'Randomly distribute difficulties unpredictably.'
+  }[diff];
+
+  const catGuide = cat === 'any' ? 'Use varied categories.' : `Prefer category: ${cat} (at least 50% of modifications).`;
+
+  const prompt = buildPrompt(gameName, gameDesc, count, diffGuide, catGuide);
+
+  try {
+    const mods = await callClaude(prompt);
+    lastMods = mods;
+    renderCards(mods, gameName);
+    renderTree(mods);
+    renderExport(mods);
+    setStatus(`Generated ${mods.length} modifications for ${gameName}. ✦`);
+  } catch (err) {
+    setStatus('Generation failed. See error below.');
+    $('cardsSection').classList.remove('hidden');
+    $('cardsGrid').innerHTML = `<div class="error-box">Error: ${err.message}</div>`;
+  }
+
+  $('generateBtn').disabled = false;
+}
+
+function buildPrompt(gameName, gameDesc, count, diffGuide, catGuide) {
+  return `You are an expert board game designer for the "Game of Games" meta-game framework.
+
+TASK: Generate ${count} rule modification cards for the game "${gameName}".
+
+GAME DESCRIPTION:
+${gameDesc}
+
+MODIFICATION REQUIREMENTS:
+- Each modification alters or extends the rules in a creative, coherent way.
+- Modifications must be internally consistent and not contradict core game logic unless deliberately replacing a rule.
+- ${diffGuide}
+- ${catGuide}
+- Each modification must have a "parent_ids" field: an array of mod IDs it is compatible WITH (or [] if compatible with base game alone). This forms the dependency tree.
+- At most 2 modifications should target win_conditions.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON array. No markdown, no explanation. Each element must have these exact fields:
+{
+  "id": "mod_001",  (sequential, zero-padded)
+  "name": "Short evocative name",
+  "category": "movement|scoring|turn_structure|board|hand_management|win_condition|new_mechanic",
+  "difficulty": "simple|moderate|complex",
+  "flavor_text": "One vivid sentence describing the feel of this rule (like card flavor text).",
+  "when_trigger": "One sentence: what game event reveals/triggers this modification card.",
+  "effect_summary": "2-3 sentences describing the rule change in plain English.",
+  "adds_rules": ["Plain English description of each new rule added"],
+  "removes_rules": ["Plain English description of each rule removed/disabled"],
+  "modifies_rules": ["Plain English description of each rule changed"],
+  "tags": ["2-4 lowercase tags"],
+  "conflicts_with": ["mod_ids that cannot coexist with this one"],
+  "requires_active": ["mod_ids that must be active before this one can be applied"],
+  "parent_ids": ["mod_ids this builds upon or [], using only ids that appear earlier in the array"]
+}
+
+Generate exactly ${count} modifications now:`;
+}
+
+async function callClaude(prompt) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.content.map(b => b.text || '').join('');
+
+  // Strip any markdown fences
+  const clean = text.replace(/```json|```/g, '').trim();
+  
+  // Find JSON array
+  const start = clean.indexOf('[');
+  const end = clean.lastIndexOf(']');
+  if (start === -1 || end === -1) throw new Error('No JSON array in response');
+  
+  return JSON.parse(clean.slice(start, end + 1));
+}
+
+// ─── Render cards ────────────────────────────────────────────────
+function renderCards(mods, gameName) {
+  $('cardCount').textContent = `— ${mods.length} cards for ${gameName}`;
+  const grid = $('cardsGrid');
+  grid.innerHTML = '';
+
+  mods.forEach((mod, i) => {
+    const card = document.createElement('div');
+    card.className = 'mod-card';
+    card.style.animationDelay = `${i * 0.05}s`;
+
+    const diffClass = { simple: 'badge-simple', moderate: 'badge-moderate', complex: 'badge-complex' }[mod.difficulty] || 'badge-moderate';
+    const catLabel = (mod.category || '').replace(/_/g, ' ');
+
+    const addsHtml  = (mod.adds_rules||[]).map(r => `<li>${r}</li>`).join('');
+    const removesHtml = (mod.removes_rules||[]).filter(r=>r).map(r => `<li>${r}</li>`).join('');
+    const modifiesHtml = (mod.modifies_rules||[]).filter(r=>r).map(r => `<li>${r}</li>`).join('');
+
+    card.innerHTML = `
+      <span class="card-badge ${diffClass}">${mod.difficulty || 'simple'}</span>
+      <div class="card-category">${catLabel}</div>
+      <div class="card-name">${mod.name || mod.id}</div>
+      <div class="card-flavor">${mod.flavor_text || ''}</div>
+      <div class="card-rule">
+        <strong>Effect</strong>
+        ${mod.effect_summary || ''}
+      </div>
+      ${addsHtml ? `<div class="card-rule"><strong>Adds</strong><ul style="margin-left:14px;font-size:0.82rem;">${addsHtml}</ul></div>` : ''}
+      ${removesHtml ? `<div class="card-rule"><strong>Removes</strong><ul style="margin-left:14px;font-size:0.82rem;color:var(--crimson);">${removesHtml}</ul></div>` : ''}
+      ${modifiesHtml ? `<div class="card-rule"><strong>Modifies</strong><ul style="margin-left:14px;font-size:0.82rem;">${modifiesHtml}</ul></div>` : ''}
+      <div class="card-rule" style="margin-bottom:4px;">
+        <strong>Triggered When</strong>${mod.when_trigger || 'Modification trigger fires'}
+      </div>
+      <div class="card-tags">
+        ${(mod.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}
+        ${(mod.conflicts_with||[]).length ? `<span class="tag" style="background:rgba(139,26,26,0.12);color:var(--crimson);border-color:rgba(139,26,26,0.25);">⚔ conflicts</span>` : ''}
+        ${(mod.requires_active||[]).length ? `<span class="tag" style="background:rgba(26,92,92,0.18);color:#1a7070;border-color:rgba(26,92,92,0.35);">⬡ requires</span>` : ''}
+      </div>
+      <div class="card-meta">${mod.id}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  $('cardsSection').classList.remove('hidden');
+}
+
+// ─── Tree Visualization ──────────────────────────────────────────
+function renderTree(mods) {
+  const canvas = $('treeCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth;
+  const H = 280;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Layout: arrange mods in rows by depth
+  // Compute depth
+  const depthMap = {};
+  const idToMod = {};
+  mods.forEach(m => { idToMod[m.id] = m; depthMap[m.id] = 0; });
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    mods.forEach(m => {
+      const parents = (m.parent_ids || []).filter(p => idToMod[p]);
+      if (parents.length) {
+        const maxParentDepth = Math.max(...parents.map(p => depthMap[p] || 0));
+        const newDepth = maxParentDepth + 1;
+        if (newDepth > depthMap[m.id]) { depthMap[m.id] = newDepth; changed = true; }
+      }
+    });
+  }
+
+  const maxDepth = Math.max(...Object.values(depthMap));
+  const cols = maxDepth + 1;
+  const byDepth = {};
+  mods.forEach(m => {
+    const d = depthMap[m.id];
+    if (!byDepth[d]) byDepth[d] = [];
+    byDepth[d].push(m);
+  });
+
+  // Positions
+  const pos = {};
+  const NODE_R = 10;
+  const PAD = 28;
+  for (let d = 0; d <= maxDepth; d++) {
+    const group = byDepth[d] || [];
+    const x = PAD + (d / Math.max(cols - 1, 1)) * (W - 2 * PAD);
+    group.forEach((m, i) => {
+      const y = PAD + (i + 0.5) * ((H - 2 * PAD) / Math.max(group.length, 1));
+      pos[m.id] = { x, y };
+    });
+  }
+
+  // Draw edges
+  mods.forEach(m => {
+    (m.parent_ids || []).forEach(pid => {
+      if (!pos[pid] || !pos[m.id]) return;
+      const from = pos[pid], to = pos[m.id];
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.bezierCurveTo(
+        from.x + (to.x - from.x) * 0.5, from.y,
+        from.x + (to.x - from.x) * 0.5, to.y,
+        to.x, to.y
+      );
+      ctx.strokeStyle = 'rgba(200,150,12,0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+  });
+
+  // Draw nodes
+  const diffColors = {
+    simple:   { fill: '#1a3e1a', stroke: '#4aaa4a', text: '#90e890' },
+    moderate: { fill: '#3e2e00', stroke: '#c8a020', text: '#f0d060' },
+    complex:  { fill: '#3e0808', stroke: '#c82020', text: '#f09090' }
+  };
+
+  mods.forEach(m => {
+    const p = pos[m.id]; if (!p) return;
+    const col = diffColors[m.difficulty] || diffColors.moderate;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, NODE_R, 0, Math.PI * 2);
+    ctx.fillStyle = col.fill;
+    ctx.fill();
+    ctx.strokeStyle = col.stroke;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Category letter
+    const letter = (m.category || 'x')[0].toUpperCase();
+    ctx.fillStyle = col.text;
+    ctx.font = `bold 9px 'Courier New'`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, p.x, p.y);
+  });
+
+  // Legend
+  const legItems = [
+    { color: '#4aaa4a', label: 'S = Simple' },
+    { color: '#c8a020', label: 'M = Moderate' },
+    { color: '#c82020', label: 'C = Complex' }
+  ];
+  ctx.font = '10px Crimson Pro, serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  legItems.forEach((item, i) => {
+    const lx = W - 110, ly = 16 + i * 18;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+    ctx.fillStyle = item.color + '33';
+    ctx.fill();
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(245,238,216,0.5)';
+    ctx.fillText(item.label, lx + 10, ly);
+  });
+
+  $('treeSection').classList.remove('hidden');
+}
+
+// ─── Export ──────────────────────────────────────────────────────
+function renderExport(mods) {
+  $('exportBox').textContent = JSON.stringify(mods, null, 2);
+  $('exportSection').classList.remove('hidden');
+}
+
+function copyJSON() {
+  navigator.clipboard.writeText(JSON.stringify(lastMods, null, 2))
+    .then(() => setStatus('JSON copied to clipboard! ✦'))
+    .catch(() => setStatus('Copy failed — try selecting from the box.'));
+}
+
+function downloadJSON() {
+  download(JSON.stringify(lastMods, null, 2), `gog-mods-${lastGameName.toLowerCase().replace(/\s/g,'-')}.json`, 'application/json');
+}
+
+function downloadYAML() {
+  const yaml = modArrayToYAML(lastMods);
+  download(yaml, `gog-mods-${lastGameName.toLowerCase().replace(/\s/g,'-')}.yaml`, 'text/yaml');
+}
+
+function modArrayToYAML(mods) {
+  return mods.map(m => {
+    const lines = ['- modification:'];
+    const fields = ['id','name','category','difficulty','flavor_text','when_trigger','effect_summary'];
+    fields.forEach(f => {
+      if (m[f] !== undefined) lines.push(`    ${f}: "${String(m[f]).replace(/"/g,"'")}"`);
+    });
+    ['adds_rules','removes_rules','modifies_rules','tags','conflicts_with','requires_active','parent_ids'].forEach(f => {
+      const arr = m[f] || [];
+      if (arr.length) {
+        lines.push(`    ${f}:`);
+        arr.forEach(v => lines.push(`      - "${String(v).replace(/"/g,"'")}"`));
+      } else {
+        lines.push(`    ${f}: []`);
+      }
+    });
+    return lines.join('\n');
+  }).join('\n\n');
+}
+
+function download(content, filename, mime) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: mime }));
+  a.download = filename;
+  a.click();
+}
+</script>
+
+</body>
+</html>
